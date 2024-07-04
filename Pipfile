@@ -8,7 +8,6 @@ pandas = "*"
 awscli = "*"
 boto3 = "*"
 python-dotenv = "*"
-jupyter = "*"
 
 [dev-packages]
 
