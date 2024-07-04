@@ -1,8 +1,12 @@
 import boto3
 import os
-from dotenv import load_dotenv
+from datetime import datetime, timedelta
 from io import StringIO
 import pandas as pd
+from dotenv import load_dotenv
+
+arg_date = "2022-11-16"
+arg_date_dt = datetime.strptime(arg_date, "%Y-%m-%d").date() - timedelta(days=1)
 
 load_dotenv()
 
@@ -17,11 +21,11 @@ s3 = session.resource("s3")
 bucket = s3.Bucket("xetra-1234")
 
 # Fetching objects for the specified dates
-bucket_obj1 = bucket.objects.filter(Prefix="2022-03-15/")
-bucket_obj2 = bucket.objects.filter(Prefix="2022-03-16/")
-
-# Combine objects from both dates
-objects = [obj for obj in bucket_obj1] + [obj for obj in bucket_obj2]
+objects = [
+    obj
+    for obj in bucket.objects.all()
+    if datetime.strptime(obj.key.split("/")[0], "%Y-%m-%d").date() >= arg_date_dt
+]
 
 # Read the first CSV object to get the initial dataframe structure
 csv_obj_init = (
@@ -42,7 +46,6 @@ for obj in objects[1:]:  # start from the second object since the first is alrea
 
 # Concatenate all dataframes into one
 df_all = pd.concat(df_list, ignore_index=True)
-
 
 columns = [
     "ISIN",
@@ -85,11 +88,12 @@ df_all["prev_closing_price"] = (
     df_all.sort_values(by=["Date"]).groupby(["ISIN"])["closing_price_eur"].shift(1)
 )
 df_all["change_prev_closing_%"] = (
-    df_all["closing_price_eur"]
-    - df_all["prev_closing_price"] / df_all["prev_closing_price"] * 100
+    (df_all["closing_price_eur"] - df_all["prev_closing_price"])
+    / df_all["prev_closing_price"]
+    * 100
 )
 df_all.drop(columns=["prev_closing_price"], inplace=True)
 df_all = df_all.round(decimals=2)
-
+df_all = df_all[df_all.Date >= arg_date]
 
 print(df_all)
