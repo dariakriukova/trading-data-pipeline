@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Adapter layer
+# Adapter Layer
 
 
-def read_csv_to_df(bucket, key, decoding="utf-8"):
+def read_csv_to_df(bucket, key, decoding="utf-8", sep=","):
     csv_obj = bucket.Object(key=key).get().get("Body").read().decode(decoding)
     data = StringIO(csv_obj)
-    df = pd.read_csv(data)
+    df = pd.read_csv(data, delimiter=sep)
     return df
 
 
@@ -29,7 +29,7 @@ def list_files_in_prefix(bucket, prefix):
     return files
 
 
-# Application layer
+# Application Layer
 
 
 def extract(bucket, date_list):
@@ -40,20 +40,17 @@ def extract(bucket, date_list):
 
 def transform_report1(df, columns, arg_date):
     df = df.loc[:, columns]
-    df.dropna(inplace=True)  # drop rows with missing values
-    # Get opening price for ISIN and day
+    df.dropna(inplace=True)
     df["opening_price"] = (
         df.sort_values(by=["Time"])
         .groupby(["ISIN", "Date"])["StartPrice"]
         .transform("first")
     )
-    # Get closing price for ISIN and day
     df["closing_price"] = (
         df.sort_values(by=["Time"])
-        .groupby(["ISIN", "Date"])["EndPrice"]
+        .groupby(["ISIN", "Date"])["StartPrice"]
         .transform("last")
     )
-    # Aggregations
     df = df.groupby(["ISIN", "Date"], as_index=False).agg(
         opening_price_eur=("opening_price", "min"),
         closing_price_eur=("closing_price", "min"),
@@ -61,7 +58,6 @@ def transform_report1(df, columns, arg_date):
         maximum_price_eur=("MaxPrice", "max"),
         daily_traded_volume=("TradedVolume", "sum"),
     )
-    # Percent change Prev Closing
     df["prev_closing_price"] = (
         df.sort_values(by=["Date"]).groupby(["ISIN"])["closing_price_eur"].shift(1)
     )
@@ -91,14 +87,14 @@ def etl_report1(
     return True
 
 
-# Application layer - not core
+# Application Layer - not core
 
 
 def return_date_list(bucket, arg_date, src_format):
     min_date = datetime.strptime(arg_date, src_format).date() - timedelta(days=1)
     today = datetime.today().date()
     return_date_list = [
-        (min_date + timedelta(days=x)).strftime("src_format")
+        (min_date + timedelta(days=x)).strftime(src_format)
         for x in range(0, (today - min_date).days + 1)
     ]
     return return_date_list
@@ -157,7 +153,7 @@ for obj in bucket_trg.objects.all():
     print(obj.key)
 
 prq_obj = (
-    bucket_trg.Object(key="xetra_daily_report_20240704_111237.parquet")
+    bucket_trg.Object(key="xetra_daily_report_20240704_135550.parquet")
     .get()
     .get("Body")
     .read()
