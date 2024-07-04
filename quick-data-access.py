@@ -6,7 +6,22 @@ import pandas as pd
 from dotenv import load_dotenv
 
 arg_date = "2022-12-27"
-arg_date_dt = datetime.strptime(arg_date, "%Y-%m-%d").date() - timedelta(days=1)
+src_format = "%Y-%m-%d"
+src_bucket = "xetra-1234"
+bucket_target = "xetra-1234-final"
+columns = [
+    "ISIN",
+    "Date",
+    "Time",
+    "StartPrice",
+    "MaxPrice",
+    "MinPrice",
+    "EndPrice",
+    "TradedVolume",
+]
+key = "xetra_daily_report_" + datetime.today().strftime("%Y%m%d_%H%M%S") + ".parquet"
+
+arg_date_dt = datetime.strptime(arg_date, src_format).date() - timedelta(days=1)
 
 load_dotenv()
 
@@ -18,45 +33,26 @@ session = boto3.Session(
 
 # Access the S3 resource
 s3 = session.resource("s3")
-bucket = s3.Bucket("xetra-1234")
+bucket = s3.Bucket(src_bucket)
 
 # Fetching objects for the specified dates
 objects = [
     obj
     for obj in bucket.objects.all()
-    if datetime.strptime(obj.key.split("/")[0], "%Y-%m-%d").date() >= arg_date_dt
+    if datetime.strptime(obj.key.split("/")[0], src_format).date() >= arg_date_dt
 ]
 
-# Read the first CSV object to get the initial dataframe structure
-csv_obj_init = (
-    bucket.Object(key=objects[0].key).get().get("Body").read().decode("utf-8")
-)
-data = StringIO(csv_obj_init)
-df_init = pd.read_csv(data)
 
-# Initialize a list to store dataframes
-df_list = [df_init]
-
-# Append data from each object to the list
-for obj in objects[1:]:  # start from the second object since the first is already read
-    csv_obj = bucket.Object(key=obj.key).get().get("Body").read().decode("utf-8")
+def csv_to_df(filename):
+    csv_obj = bucket.Object(key=filename).get().get("Body").read().decode("utf-8")
     data = StringIO(csv_obj)
-    df = pd.read_csv(data)
-    df_list.append(df)
+    df = pd.read_csv(data, delimiter=",")
+    return df
 
-# Concatenate all dataframes into one
-df_all = pd.concat(df_list, ignore_index=True)
 
-columns = [
-    "ISIN",
-    "Date",
-    "Time",
-    "StartPrice",
-    "MaxPrice",
-    "MinPrice",
-    "EndPrice",
-    "TradedVolume",
-]
+df_all = pd.concat([csv_to_df(obj.key) for obj in objects], ignore_index=True)
+
+
 df_all = df_all.loc[:, columns]
 df_all.dropna(inplace=True)  # drop rows with missing values
 
@@ -99,15 +95,21 @@ df_all = df_all[df_all.Date >= arg_date]
 print(df_all)
 
 ## Save to S3
-key = "xetra_daily_report_" + datetime.today().strftime("%Y%m%d_%H%M%S") + ".parquet"
 out_buffer = BytesIO()
 df_all.to_parquet(out_buffer, index=False)
-bucket_target = s3.Bucket("xetra-1234-final")
+bucket_target = s3.Bucket(bucket_target)
 bucket_target.put_object(Body=out_buffer.getvalue(), Key=key)
 
 # Reading the uploaded file
 for obj in bucket_target.objects.all():
-    prq_obj = bucket_target.Object(key=obj.key).get().get("Body").read()
-    data = BytesIO(prq_obj)
-    df_report = pd.read_parquet(data)
-    print(df_report)
+    print(obj.key)
+
+prq_obj = (
+    bucket_target.Object(key="xetra_daily_report_20240704_105225.parquet")
+    .get()
+    .get("Body")
+    .read()
+)
+data = BytesIO(prq_obj)
+df_report = pd.read_parquet(data)
+print(df_report)
