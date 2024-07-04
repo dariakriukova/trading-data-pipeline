@@ -1,11 +1,11 @@
 import boto3
 import os
 from datetime import datetime, timedelta
-from io import StringIO
+from io import StringIO, BytesIO
 import pandas as pd
 from dotenv import load_dotenv
 
-arg_date = "2022-11-16"
+arg_date = "2022-12-27"
 arg_date_dt = datetime.strptime(arg_date, "%Y-%m-%d").date() - timedelta(days=1)
 
 load_dotenv()
@@ -97,3 +97,17 @@ df_all = df_all.round(decimals=2)
 df_all = df_all[df_all.Date >= arg_date]
 
 print(df_all)
+
+## Save to S3
+key = "xetra_daily_report_" + datetime.today().strftime("%Y%m%d_%H%M%S") + ".parquet"
+out_buffer = BytesIO()
+df_all.to_parquet(out_buffer, index=False)
+bucket_target = s3.Bucket("xetra-1234-final")
+bucket_target.put_object(Body=out_buffer.getvalue(), Key=key)
+
+# Reading the uploaded file
+for obj in bucket_target.objects.all():
+    prq_obj = bucket_target.Object(key=obj.key).get().get("Body").read()
+    data = BytesIO(prq_obj)
+    df_report = pd.read_parquet(data)
+    print(df_report)
