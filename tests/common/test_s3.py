@@ -7,7 +7,7 @@ import sys
 import unittest
 
 import boto3
-from moto import mock_s3
+import moto
 from dotenv import load_dotenv
 
 # Now you can import your custom modules
@@ -22,8 +22,6 @@ if pythonpath and pythonpath not in sys.path:
     sys.path.append(pythonpath)
 
 
-
-
 class TestS3BucketConnectorMethods(unittest.TestCase):
     """
     Testing the S3BucketConnector class.
@@ -34,7 +32,7 @@ class TestS3BucketConnectorMethods(unittest.TestCase):
         Setting up the environment
         """
         # mocking s3 connection start
-        self.mock_s3 = mock_s3()
+        self.mock_s3 = moto.mock_aws()
         self.mock_s3.start()
         # Defining the class arguments
         self.s3_access_key = "AWS_ACCESS_KEY_ID"
