@@ -103,3 +103,5 @@ class TestS3BucketConnectorMethods(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# ModuleNotFoundError: No module named 'moto.moto_api'
