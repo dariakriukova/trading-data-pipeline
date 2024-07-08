@@ -43,9 +43,7 @@ class TestMetaProcessMethods(unittest.TestCase):
             Bucket=self.s3_bucket_name,
             CreateBucketConfiguration={"LocationConstraint": "eu-central-1"},
         )
-        self.s3_bucket = self.s3.Bucket(self.s3_bucket_name)
-        # Creating a testing instance
-        self.s3_bucket_conn = S3BucketConnector(
+        self.s3_bucket = S3BucketConnector(
             bucket=self.s3_bucket_name, endpoint_url=self.s3_endpoint_url
         )
         # Initialize dates attribute
@@ -71,7 +69,11 @@ class TestMetaProcessMethods(unittest.TestCase):
         MetaProcess.update_meta_file(date_list_exp, meta_key, self.s3_bucket)
         # Read meta file
         data = (
-            self.s3_bucket.Object(key=meta_key).get().get("Body").read().decode("utf-8")
+            self.s3_bucket._bucket.Object(key=meta_key)
+            .get()
+            .get("Body")
+            .read()
+            .decode("utf-8")
         )
         out_buffer = StringIO(data)
         df_meta_result = pd.read_csv(out_buffer)
@@ -87,7 +89,7 @@ class TestMetaProcessMethods(unittest.TestCase):
         self.assertEqual(date_list_exp, date_list_result)
         self.assertEqual(proc_date_list_exp, proc_date_list_result)
         # Cleanup after test
-        self.s3_bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
+        self.s3_bucket._bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
 
     def test_update_meta_file_empty_date_list(self):
         """
@@ -128,12 +130,16 @@ class TestMetaProcessMethods(unittest.TestCase):
             f"{date_list_old[1]},"
             f"{datetime.today().strftime(MetaProcessFormat.META_PROCESS_DATE_FORMAT.value)}"
         )
-        self.s3_bucket.put_object(Body=meta_content, Key=meta_key)
+        self.s3_bucket._bucket.put_object(Body=meta_content, Key=meta_key)
         # Method execution
         MetaProcess.update_meta_file(date_list_new, meta_key, self.s3_bucket)
         # Read meta file
         data = (
-            self.s3_bucket.Object(key=meta_key).get().get("Body").read().decode("utf-8")
+            self.s3_bucket._bucket.Object(key=meta_key)
+            .get()
+            .get("Body")
+            .read()
+            .decode("utf-8")
         )
         out_buffer = StringIO(data)
         df_meta_result = pd.read_csv(out_buffer)
@@ -149,7 +155,7 @@ class TestMetaProcessMethods(unittest.TestCase):
         self.assertEqual(date_list_exp, date_list_result)
         self.assertEqual(proc_date_list_exp, proc_date_list_result)
         # Cleanup after test
-        self.s3_bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
+        self.s3_bucket._bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
 
     def test_update_meta_file_meta_file_wrong(self):
         """
@@ -168,12 +174,12 @@ class TestMetaProcessMethods(unittest.TestCase):
             f"{date_list_old[1]},"
             f"{datetime.today().strftime(MetaProcessFormat.META_PROCESS_DATE_FORMAT.value)}"
         )
-        self.s3_bucket.put_object(Body=meta_content, Key=meta_key)
+        self.s3_bucket._bucket.put_object(Body=meta_content, Key=meta_key)
         # Method execution
         with self.assertRaises(WrongMetaFileException):
             MetaProcess.update_meta_file(date_list_new, meta_key, self.s3_bucket)
         # Cleanup after test
-        self.s3_bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
+        self.s3_bucket._bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
 
     def test_return_date_list_no_meta_file(self):
         """
@@ -246,7 +252,7 @@ class TestMetaProcessMethods(unittest.TestCase):
             f"{self.dates[3]},{self.dates[0]}\n"
             f"{self.dates[4]},{self.dates[0]}"
         )
-        self.s3_bucket.put_object(Body=meta_content, Key=meta_key)
+        self.s3_bucket._bucket.put_object(Body=meta_content, Key=meta_key)
         first_date_list = [self.dates[1], self.dates[4], self.dates[7]]
         # Method execution
         for count, first_date in enumerate(first_date_list):
@@ -257,7 +263,7 @@ class TestMetaProcessMethods(unittest.TestCase):
             self.assertEqual(set(date_list_exp[count]), set(date_list_return))
             self.assertEqual(min_date_exp[count], min_date_return)
         # Cleanup after test
-        self.s3_bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
+        self.s3_bucket._bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
 
     def test_return_date_list_meta_file_wrong(self):
         """
@@ -271,13 +277,13 @@ class TestMetaProcessMethods(unittest.TestCase):
             f"{self.dates[3]},{self.dates[0]}\n"
             f"{self.dates[4]},{self.dates[0]}"
         )
-        self.s3_bucket.put_object(Body=meta_content, Key=meta_key)
+        self.s3_bucket._bucket.put_object(Body=meta_content, Key=meta_key)
         first_date = self.dates[1]
         # Method execution
         with self.assertRaises(KeyError):
             MetaProcess.return_date_list(first_date, meta_key, self.s3_bucket)
         # Cleanup after test
-        self.s3_bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
+        self.s3_bucket._bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
 
     def test_return_date_list_empty_date_list(self):
         """
@@ -295,7 +301,7 @@ class TestMetaProcessMethods(unittest.TestCase):
             f"{self.dates[0]},{self.dates[0]}\n"
             f"{self.dates[1]},{self.dates[0]}"
         )
-        self.s3_bucket.put_object(Body=meta_content, Key=meta_key)
+        self.s3_bucket._bucket.put_object(Body=meta_content, Key=meta_key)
         first_date = self.dates[0]
         # Method execution
         min_date_return, date_list_return = MetaProcess.return_date_list(
@@ -305,7 +311,7 @@ class TestMetaProcessMethods(unittest.TestCase):
         self.assertEqual(date_list_exp, date_list_return)
         self.assertEqual(min_date_exp, min_date_return)
         # Cleanup after test
-        self.s3_bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
+        self.s3_bucket._bucket.delete_objects(Delete={"Objects": [{"Key": meta_key}]})
 
 
 if __name__ == "__main__":

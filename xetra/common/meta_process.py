@@ -22,7 +22,7 @@ class MetaProcess:
         extract_date_list: list, meta_key: str, s3_bucket_meta: S3BucketConnector
     ):
         """
-        Updating the meta file with the processed Xetra dates and todays date as processed date
+        Updating the meta file with the processed Xetra dates and today's date as processed date
 
         :param: extract_date_list -> a list of dates that are extracted from the source
         :param: meta_key -> key of the meta file on the S3 bucket
@@ -82,7 +82,7 @@ class MetaProcess:
             # If meta file exists create return_date_list using the content of the meta file
             # Reading meta file
             df_meta = s3_bucket_meta.read_csv_to_df(meta_key)
-            # Creating a list of dates from first_date untill today
+            # Creating a list of dates from first_date until today
             dates = [
                 start + timedelta(days=x) for x in range(0, (today - start).days + 1)
             ]
@@ -96,7 +96,7 @@ class MetaProcess:
             if dates_missing:
                 # Determining the earliest date that should be extracted
                 min_date = min(set(dates[1:]) - src_dates) - timedelta(days=1)
-                # Creating a list of dates from min_date untill today
+                # Creating a list of dates from min_date until today
                 return_min_date = (min_date + timedelta(days=1)).strftime(
                     MetaProcessFormat.META_DATE_FORMAT.value
                 )
@@ -113,8 +113,8 @@ class MetaProcess:
                     .date()
                     .strftime(MetaProcessFormat.META_DATE_FORMAT.value)
                 )
-        except s3_bucket_meta.session.client("s3").exceptions.NoSuchKey:
-            # No meta file found -> creating a date list from first_date - 1 day untill today
+        except s3_bucket_meta._s3.meta.client.exceptions.NoSuchKey:
+            # No meta file found -> creating a date list from first_date - 1 day until today
             return_min_date = first_date
             return_dates = [
                 (start + timedelta(days=x)).strftime(
